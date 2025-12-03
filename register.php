@@ -1,13 +1,7 @@
 <?php
-// ===============================================
-// 1. SETUP - THESE MUST BE THE FIRST LINES
-// ===============================================
 session_start();
-require_once 'config.php'; 
+require_once 'config.php';
 
-// ===============================================
-// 2. PROCESS FORM SUBMISSION LOGIC
-// ===============================================
 if (isset($_POST['register_btn'])) {
     $username = trim($_POST['username']);
     $password = $_POST['password'];
@@ -18,7 +12,6 @@ if (isset($_POST['register_btn'])) {
         exit();
     }
 
-    // This is the line failing (e.g., line 16, 19, or 22)
     $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->execute([$username]);
 
@@ -28,10 +21,8 @@ if (isset($_POST['register_btn'])) {
         exit();
     }
 
-    // 2. Hash the password securely
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // 3. Insert the new user into the database
     $stmt = $pdo->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
     if ($stmt->execute([$username, $hashed_password])) {
         $_SESSION['success'] = 'Registration successful! You can now log in.';
@@ -43,7 +34,6 @@ if (isset($_POST['register_btn'])) {
         exit();
     }
 }
-// END OF THE MAIN PHP BLOCK
 ?>
 
 <!DOCTYPE html>
@@ -70,7 +60,6 @@ if (isset($_POST['register_btn'])) {
         <h2>Register here</h2>
 
         <?php
-        // Display any errors or success messages from the session
         if (isset($_SESSION['error'])): ?>
             <p class="error"><?= $_SESSION['error']; ?></p>
             <?php unset($_SESSION['error']);

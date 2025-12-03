@@ -1,10 +1,8 @@
 <?php
-// welcome.php - Canteen Page with Full Database Operations and Redirect
 
 session_start();
-require_once 'config.php'; // Includes $pdo connection
+require_once 'config.php';
 
-// 1. Check if the user is logged in
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit();
@@ -16,12 +14,9 @@ $menu_items = [];
 $item_fetch_error = '';
 
 try {
-    // 2. Fetch the current menu items from the grocery_db
-    // NOTE: We use the 'grocery_db.' prefix because the items tables are separate from the 'users' table.
     $stmt = $pdo->query("SELECT item_id, item_name, price, stock_quantity FROM grocery_db.grocery_items WHERE stock_quantity > 0 ORDER BY item_name ASC");
     $raw_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Reformat array for easy access
     foreach ($raw_items as $item) {
         $menu_items[$item['item_name']] = [
             'price' => (float)$item['price'],
@@ -31,12 +26,10 @@ try {
     }
 
 } catch (PDOException $e) {
-    // If this fails, the 'grocery_db' is not accessible or the table is wrong.
     $item_fetch_error = 'Error loading menu items (DB Error). Check that grocery_db exists.';
 }
 
 
-// --- Order Processing Logic ---
 $order_error_message = '';
 
 if (isset($_POST['submit_order']) && empty($item_fetch_error)) {
@@ -44,7 +37,6 @@ if (isset($_POST['submit_order']) && empty($item_fetch_error)) {
     $quantity = (int)$_POST['quantity'];
     $cash = (float)$_POST['cash'];
 
-    // Validation
     if (!isset($menu_items[$item_name])) {
         $order_error_message = 'Invalid item selected.';
     } elseif ($quantity <= 0) {
@@ -61,11 +53,9 @@ if (isset($_POST['submit_order']) && empty($item_fetch_error)) {
         if ($change < 0) {
             $order_error_message = 'Cash is insufficient. Total cost is ' . number_format($total_cost, 2) . ' PHP.';
         } else {
-            // --- DATABASE TRANSACTIONS (SAVE ORDER AND UPDATE STOCK) ---
             try {
                 $pdo->beginTransaction(); 
 
-                // 1. INSERT: Save the order to the 'orders' table in grocery_db
                 $sql_insert = "INSERT INTO grocery_db.orders (user_id, item_name, quantity, total_cost)
                                VALUES (:user_id, :item_name, :quantity, :total_cost)";
                 $stmt_insert = $pdo->prepare($sql_insert);
@@ -76,7 +66,6 @@ if (isset($_POST['submit_order']) && empty($item_fetch_error)) {
                     ':total_cost' => $total_cost
                 ]);
 
-                // 2. UPDATE: Reduce stock quantity in grocery_db.grocery_items
                 $sql_update = "UPDATE grocery_db.grocery_items SET stock_quantity = stock_quantity - :quantity WHERE item_id = :id";
                 $stmt_update = $pdo->prepare($sql_update);
                 $stmt_update->execute([
@@ -86,19 +75,14 @@ if (isset($_POST['submit_order']) && empty($item_fetch_error)) {
 
                 $pdo->commit(); 
 
-                // ----------------------------------------------------
-                // SUCCESS: Store details and REDIRECT to confirmation page
-                // ----------------------------------------------------
                 $_SESSION['order_total'] = $total_cost;
                 $_SESSION['order_change'] = $change;
                 
                 header('Location: order_confirm.php');
                 exit();
-                // ----------------------------------------------------
 
             } catch (PDOException $e) {
                 $pdo->rollBack(); 
-                // This is the error you saw: "Failed to process order (DB Error)."
                 $order_error_message = 'Failed to process order (DB Error). Check if the orders table exists.';
             }
         }
@@ -106,8 +90,6 @@ if (isset($_POST['submit_order']) && empty($item_fetch_error)) {
 }
 
 
-// --- Order History Fetch (for display on this page, if user returns) ---
-// This part is kept for completeness, but the user will be redirected away on a successful order.
 $order_history = [];
 try {
     $sql_history = "SELECT order_id, item_name, quantity, total_cost, order_date 
@@ -119,7 +101,6 @@ try {
     $stmt_history->execute();
     $order_history = $stmt_history->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // History fetch failure is less critical than order processing failure
     $history_error = "Could not fetch order history.";
 }
 
